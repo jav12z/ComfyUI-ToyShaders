@@ -1,0 +1,358 @@
+{
+  "id": "a5fa0a54-4dc8-4e2b-a80f-8afeb7470e3f",
+  "revision": 0,
+  "last_node_id": 13,
+  "last_link_id": 7,
+  "nodes": [
+    {
+      "id": 7,
+      "type": "PreviewImage",
+      "pos": [
+        1811.0529079964797,
+        1674.1133786270893
+      ],
+      "size": [
+        140,
+        246
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 4
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.68",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 6,
+      "type": "ToyShaderNode",
+      "pos": [
+        1413.7769237903692,
+        1655.1654660005804
+      ],
+      "size": [
+        270,
+        682
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "main_code",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "buffer_a_code",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "iChannel0",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "iChannel1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "iChannel2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "iChannel3",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            4
+          ]
+        },
+        {
+          "name": "DEPTH",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ToyShaderNode"
+      },
+      "widgets_values": [
+        512,
+        512,
+        48,
+        24,
+        "Zippy Zaps [399 Chars] - zoom",
+        1,
+        1,
+        "",
+        0.1,
+        false,
+        "none",
+        "none",
+        "none",
+        "none"
+      ]
+    },
+    {
+      "id": 12,
+      "type": "ShaderCodeInput",
+      "pos": [
+        779.0022678801148,
+        2484.999054186187
+      ],
+      "size": [
+        516.3158401322934,
+        532.9826011630362
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ShaderCodeInput"
+      },
+      "widgets_values": [
+        "/*\n\n\tCloud Flight\n\t------------\n\n\tYet another cloud shader. :) However, just to be a little different, this particular one\n    takes the camera through the clouds - as opposed to over or under. The scene is supposed\n    to look a little artificial or cartoony, so I wouldn't take it too seriously. :)\n\n\tThere are plenty of realistic cloud shaders on Shadertoy, so I thought I'd do a stylized\n\tversion. Plus, I had to cheap out on everything, so realism wasn't exactly an option. :)\n\tThe colors and contrast have deliberately been exaggerated to give it more of a surreal \n\tfeel. The ramped up contrast also serves to allow the viewer to more easily discern the \n\tindividual cloud shapes. \n\n\tIn case anyone was wondering, the cloud shapes were emphasized by assigning a much higher \n\tweighting to the larger low frequency base layers. Giving the clouds a denser look was a \n\tstyle choice, but it's possible to make them fluffier and more traditional looking with \n\ta few tweaks here and there.\n\n\tOne of the things you figure out pretty quickly when doing this kind of thing is that \n    when you don't have enough iterations to work with, fake physics tend to work better than \n    real physics. For real shadows, you need to traverse toward the light several times. In \n    this example, you're doing so just once, which is bordering on pathetic. :) Therefore, \n    it's necessary to darken the one-tap shadow value to give the impression that more \n    shadowing is happening. However, you'll never produce a real shadow cast, no matter how \n    hard you try.\n\n\tIt'd be nice to put up an example with volumetric shadowing, etc, but I don't think the\n\taverage GPU is quite fast enough yet. Having said that, I might see what I can come up\n\twith.\n\t\n\tBased on:\n\t\n\tCloudy Spikeball - Duke\n    https://www.shadertoy.com/view/MljXDw\n    // Port from a demo by Las - Worth watching.\n    // http://www.pouet.net/topic.php?which=7920&page=29&x=14&y=9\n\n\t// One of my favorite volumetric examples. This one has shadowing. So nice. Fast, all\n\t// things considered, but still requires a fast machine to run it properly.\n\tVolumetric Stanford Bunny - SebH\n\thttps://www.shadertoy.com/view/MdlyDs\n\n*/\n\n#define FAR 60.\n\n\n// A between cloud layers look, between the individual clouds, a more conventional fluffy \n// cloud look, or right through them. I prefer the latter arrangement, but it doesn't give \n// a clear enough view.\n//\n// 0, 1, 2 or 3: Layered, path (tunnel in disguise), fluffy layered, just cloud.\n#define ARRANGEMENT 0 \n\n// Standard 2D rotation formula - See Nimitz's comment.\nmat2 r2(in float a){ float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }\n\n// Smooth maximum, based on IQ's smooth minimum.\nfloat smax(float a, float b, float s){\n    \n    float h = clamp(.5 + .5*(a - b)/s, 0., 1.);\n    return mix(b, a, h) + h*(1. - h)*s;\n}\n\n// Hash function. This particular one probably doesn't disperse things quite \n// as nicely as some of the others around, but it's compact, and seems to work.\n//\nvec3 hash33(vec3 p){ \n    float n = sin(dot(p, vec3(7, 157, 113)));    \n    return fract(vec3(2097152, 262144, 32768)*n); \n}\n\n// IQ's texture lookup noise... in obfuscated form. There's less writing, so\n// that makes it faster. That's how optimization works, right? :) Seriously,\n// though, refer to IQ's original for the proper function.\n// \n// By the way, you could replace this with the non-textured version, and the\n// shader should run at almost the same efficiency.\nfloat n3D( in vec3 p ){\n    \n    //return texture(iChannel1, p/24., 0.25).x;\n    \n    vec3 i = floor(p); p -= i; p *= p*(3. - 2.*p);\n\tp.xy = texture(iChannel0, (p.xy + i.xy + vec2(37, 17)*i.z + .5)/256., -100.).yx;\n\treturn mix(p.x, p.y, p.z);\n}\n\n/*\n// Textureless 3D Value Noise:\n//\n// This is a rewrite of IQ's original. It's self contained, which makes it much\n// easier to copy and paste. I've also tried my best to minimize the amount of \n// operations to lessen the work the GPU has to do, but I think there's room for\n// improvement. I have no idea whether it's faster or not. It could be slower,\n// for all I know, but it doesn't really matter, because in its current state, \n// it's still no match for IQ's texture-based, smooth 3D value noise.\n//\n// By the way, a few people have managed to reduce the original down to this state, \n// but I haven't come across any who have taken it further. If you know of any, I'd\n// love to hear about it.\n//\n// I've tried to come up with some clever way to improve the randomization line\n// (h = mix(fract...), but so far, nothing's come to mind.\nfloat n3D(vec3 p){\n    \n    // Just some random figures, analogous to stride. You can change this, if you want.\n\tconst vec3 s = vec3(7, 157, 113);\n\t\n\tvec3 ip = floor(p); // Unique unit cell ID.\n    \n    // Setting up the stride vector for randomization and interpolation, kind of. \n    // All kinds of shortcuts are taken here. Refer to IQ's original formula.\n    vec4 h = vec4(0., s.yz, s.y + s.z) + dot(ip, s);\n    \n\tp -= ip; // Cell's fractional component.\n\t\n    // A bit of cubic smoothing, to give the noise that rounded look.\n    p = p*p*(3. - 2.*p);\n    \n    // Smoother version of the above. Weirdly, the extra calculations can sometimes\n    // create a surface that's easier to hone in on, and can actually speed things up.\n    // Having said that, I'm sticking with the simpler version above.\n\t//p = p*p*p*(p*(p * 6. - 15.) + 10.);\n    \n    // Even smoother, but this would have to be slower, surely?\n\t//vec3 p3 = p*p*p; p = ( 7. + ( p3 - 7. ) * p ) * p3;\t\n\t\n    // Cosinusoidal smoothing. OK, but I prefer other methods.\n    //p = .5 - .5*cos(p*3.14159);\n    \n    // Standard 3D noise stuff. Retrieving 8 random scalar values for each cube corner,\n    // then interpolating along X. There are countless ways to randomize, but this is\n    // the way most are familar with: fract(sin(x)*largeNumber).\n    h = mix(fract(sin(h)*43758.5453), fract(sin(h + s.x)*43758.5453), p.x);\n\t\n    // Interpolating along Y.\n    h.xy = mix(h.xz, h.yw, p.y);\n    \n    // Interpolating along Z, and returning the 3D noise value.\n    return mix(h.x, h.y, p.z); // Range: [0, 1].\n\t\n}\n*/\n\n\n\n\n// The path is a 2D sinusoid that varies over time, depending upon the frequencies, and \n// amplitudes.\nvec2 path(in float z){ \n\n    //return vec2(0); // Straight path.\n    return vec2(sin(z*.075)*8., cos(z*.1)*.75*2.); // Windy path.\n    \n}\n\n// Distance function. Just some layered noise, and depending on the arrangement, some shapes\n// smoothy carved out.\nfloat map(vec3 p) {\n    \n    // Time factor.\n    vec3 t = vec3(1, .5, .25)*iTime;\n\n    \n    // Two base layers of low fregency noise to shape the clouds. It's been contracted in \n    // the Y direction, since a lot clouds seem to look that way.\n    float mainLayer = n3D(p*vec3(.4, 1, .4))*.66 + n3D(p*vec3(.4, 1, .4)*2.*.8)*.34 - .0;    \n    \n    // Three layers of higher frequency noise to add detail.\n    float detailLayer = n3D(p*3. + t)*.57 +  n3D(p*6.015 + t*2.)*.28 + \n                        n3D(p*12.01 + t*4.)*.15 - .0;\n    // Two layers, if you're computer can't handle three.\n\t//float detailLayer = n3D(p*3. + t)*.8 +  n3D(p*12. + t*4.)*.2;\n\n    // Higher weighting is given to the base layers than the detailed ones.\n    float clouds = mainLayer*.84 + detailLayer*.16;\n    \n    \n    #if (ARRANGEMENT != 3)\n    // Mapping the hole or plane around the path.\n    p.xy -= path(p.z);\n    #endif\n    \n    \n    // Between cloud layers.\n    #if (ARRANGEMENT == 0) // Layered.\n    //return smax(tn, -abs(p.y) + 1.1 + (clouds - .5), .5) + (clouds - .5);\n    return smax(clouds, -length(p.xy*vec2(1./32., 1.)) + 1.1 + (clouds - .5), .5) + \n          (clouds - .5);\n    #elif (ARRANGEMENT == 1) // Path - Tunnel in disguise.\n    // Mapping the hole around the path.\n    return smax((clouds - .25)*2., -smax(abs(p.x) - .5, abs(p.y) - .5, 1.), 2.);\n    #elif (ARRANGEMENT == 2) // Path - Tunnel in disguise.\n    // Between layers, but with fluffier clouds.\n    return smax(clouds - .075, -length(p.xy*vec2(1./32., 1.)) + 1.1 + \n          (clouds - .5), .5) + (clouds - .5)*.35;\n    #else // The clouds only.\n    return (clouds - .25)*2.; \n    //return tn; // Fluffier, but blurrier.\n    #endif\n   \n   \n\n\n}\n\n\n// Less accurate 4 tap (3 extra taps, in this case) normal calculation. \n// Good enough for this example.\nvec3 fNorm(in vec3 p, float d){\n    \n    // Note the large sampling distance.\n    vec2 e = vec2(.075, 0); \n\n    // Return the normal.\n    return normalize(vec3(d - map(p - e.xyy), d - map(p - e.yxy), d - map(p - e.yyx)));\n}\n\nvoid mainImage( out vec4 fragColor, in vec2 fragCoord ){\n\n    \n    // Screen coordinates.\n\tvec2 uv = (fragCoord - iResolution.xy*.5)/iResolution.y;\n    \n    // Subtle pixel blur.\n    //vec2 hv = mod(fragCoord, 2.);\n    //uv += (1. - step(hv, vec2(1))*2.)*1./iResolution.y;\n\n\n    // Ray origin. Moving along the Z-axis.\n    vec3 ro = vec3(0, 0, iTime*4.);\n\tvec3 lk = ro + vec3(0, 0, .25);  // \"Look At\" position.\n \t\n    \t// Using the Z-value to perturb the XY-plane.\n\t// Sending the camera, \"look at,\" and light vector down the path. The \"path\" \n    // function is synchronized with the distance function.\n    ro.xy += path(ro.z);\n\tlk.xy += path(lk.z);\n\n    \n    // Using the above to produce the unit ray-direction vector.\n    float FOV = 3.14159/2.75; // FOV - Field of view.\n    vec3 forward = normalize(lk-ro);\n    vec3 right = normalize(vec3(forward.z, 0., -forward.x )); \n    vec3 up = cross(forward, right);\n\n    // rd - Ray direction.\n    vec3 rd = normalize(forward + FOV*uv.x*right + FOV*uv.y*up);\n    //rd = normalize(vec3(rd.xy, rd.z - length(rd.xy)*.15));\n    \n    // Camera swivel - based on path position.\n    vec2 sw = path(lk.z);\n    rd.xy *= r2(-sw.x/24.);\n    rd.yz *= r2(-sw.y/16.);\n    \n\n    // The ray is effectively marching through discontinuous slices of noise, so at \n    // certain angles, you can see the separation. A bit of randomization can mask that, \n    // to a degree. At the end of the day, it's not a perfect process. Anyway, the hash \n    // below is used to at jitter to the jump off point (ray origin).\n    //    \n    // It's also used for some color based jittering inside the loop.\n    vec3 rnd = hash33(rd.yzx + fract(iTime));\n\n    // Local density, total density, and weighting factor.\n    float lDen = 0., td = 0., w = 0.;\n\n    // Closest surface distance, a second sample distance variable, and total ray distance \n    // travelled. Note the comparitively large jitter offset. Unfortunately, due to cost \n    // cutting (64 largish steps, it was  necessary to get rid of banding.\n    float d = 1., d2 = 0., t = dot(rnd, vec3(.333));\n\n    // Distance threshold. Higher numbers give thicker clouds, but fill up the screen \n    // too much.    \n    const float h = .5;\n\n\n    // Initializing the scene color to black, and declaring the surface position vector.\n    vec3 col = vec3(0), sp;\n    \n    // Directional light. Don't quote me on it, but I think directional derivative lighting\n    // only works with unidirectional light... Thankfully, the light source is the cun which \n    // tends to be unidirectional anyway.\n    vec3 ld = normalize(vec3(-.2, .3, .8));\n    \n    \n    // Using the light position to produce a blueish sky and sun. Pretty standard.\n    vec3 sky = mix(vec3(1, 1, .9), vec3(.19, .35, .56), rd.y*0.5 + 0.5);\n    //sky = mix(sky, mix(vec3(1, .8, .7), vec3(.31, .52, .73), rd.y*0.5 + 0.5), .5);\n    \n    \n    // Sun position in the sky - Note that the sun has been cheated down a little lower for \n    // aesthetic purposes. All this is fake anyway.\n    vec3 fakeLd = normalize(vec3(-.2, .3, .8*1.5));\n    float sun = clamp(dot(fakeLd, rd), 0.0, 1.0);\n    \n    \n    \n    // Combining the clouds, sky and sun to produce the final color.\n    sky += vec3(1, .3, .05)*pow(sun, 5.)*.25; \n    sky += vec3(1, .4, .05)*pow(sun, 8.)*.35; \n    sky += vec3(1, .9, .7)*pow(sun, 128.)*.5; \n\n    // Ramping up the sky contrast a bit.\n    sky *= sqrt(sky); \n    \n    // I thought I'd mix in a tiny bit of sky color with the clouds here... \n    // It seemed like a good idea at the time. :)\n    vec3 cloudCol = mix(sky, vec3(1, .9, .8), .66);\n    \n\n\n    // Raymarching loop.\n    for (int i=0; i<64; i++) {\n\n\n        sp = ro + rd*t; // Current ray position.\n        d = map(sp); // Closest distance to the surface... particle.\n        \n        // Loop break conditions - If the ray hits the surface, the accumulated density \n        // maxes out, or if the total ray distance goes beyong the maximum, break.\n        if(d<.001*(1. + t*.125) || td>1. || t>FAR) break;\n\n\n        // If we get within a certain distance, \"h,\" of the surface, accumulate some surface \n        // values.\n        //\n        // Values further away have less influence on the total. When you accumulate layers, \n        // you'll usually need some kind of weighting algorithm based on some identifying \n        // factor - in this case, it's distance. This is one of many ways to do it. In fact, \n        // you'll see variations on the following lines all over the place.\n        //\n        // On a side note, you could wrap the next few lines in an \"if\" statement to save a\n        // few extra \"map\" calls, etc. However, some cards hate branching, nesting, etc, so \n        // it could be a case of diminishing returns... Not sure what the right call is, so \n        // I'll leave it to the experts. :)\n        w = d<h? (1. - td)*(h - d) : 0.;   \n\n        // Use the weighting factor to accumulate density. How you do this is up to you. \n        //td += w*w*8. + 1./64.; // More transparent looking... kind of.\n        td += w + 1./64.; // Looks cleaner, but a little washed out.\n\n        \n       \n        // Lighting calculations.\n        // Standard diffuse calculation, using a more expensive four tap tetrahedral normal.\n        // However, this will work with point light and enables are normal-based lighting.\n        //float diff = max(dot(ld, fNorm(sp, d)), 0.)*2.;\n        \n        // Directional derivative-based diffuse calculation. Uses only two function taps,\n        // but only works with unidirectional light.\n        d2 = map(sp + ld*.2);\n        // Possibly quicker than the line above, but I feel it overcomplicates things... Maybe. \n        //d2 = d<h? map(sp + ld*.1) : d;\n        float diff = max(d2 - d, 0.)/.2; \n        //float diff = max(d2*d2 - d*d, 0.)*10.; // Slightly softer diffuse effect.\n        \n\n\n        // Accumulating the color. You can do this any way you like.\n        //\n        // Note that \"1. - d2\" is a very lame one-tap shadow value - Basically, you're \n        // traversing toward the light once. It's artificially darkened more by multiplying by \n        // \"d,\" etc, which was made up on the spot. It's not very accurate, but it's better than \n        // no shadowing at all. Also note, that diffuse light gives a shadowy feel, but is not \n        // shadowing.\n        //\n        // Darker, brooding.\n        col += w*max(d*d*(1. - d2)*3. - .05, 0.)*(diff*cloudCol*6. + sky)*2.5; \n        // Other variations - Tweak them to suit your needs.\n        //col += w*d*(sqrt(diff)*vec3(1, .85, .7)*2. + 2.); // Whiter, softer, fluffier.\n        //col += w*d*((1. - exp(-diff*8.)*1.25)*vec3(1, .85, .7)*2. + 2.);\n        \n       \n        // Optional extra: Color-based jittering. Roughens up the clouds that hit the \n        // camera lens.\n        col *= .98 + fract(rnd*289. + t*41.13)*.04;\n\n        // Enforce minimum stepsize. This is probably the most important part of the \n        // procedure. It reminds me a little of of the soft shadows routine.\n        #if 0\n        d *= .5;//max(1.5 - t*t*.2, .5);\n        #else\n        // This is largely based on the distance delimiting snippet that you'll find \n        // in Nimitz's Protean Clouds shader. I doubt there are too many people who \n        // haven't seen it, but you can find it, here:\n        // https://www.shadertoy.com/view/3l23Rh\n        //\n        // I've tried a few tweaks to improve visuals, range, performance, etc, and I \n        // keep coming back to this one.\n        d = max(-d + 2., 0.);\n        d = 1. - d*d/3.;\n        #endif\n        t += clamp(d, .05, .5); //\n        // These also work - It depends what you're trying to achieve.\n        //t += 0.25; // t += d*.5;\n\n    }\n    \n    // Clamp above zero... It might not need it, but just in case.\n    col = clamp(col, 0., 1.);\n    \n    \n    // Postprocessing the cloud color just to more evenly match the background. Made up.\n    col = col + sky*(1. - col)*.1;\n    \n    // Fogging out the volumetric substance. The fog blend is heavier than usual. It was a \n    // style choice - Not sure if was the right one though. :)\n    col = mix(col, col + sky*(1. - col), smoothstep(0., .85, t/FAR));\n    col = mix(col, col + sky*sky*2.*(1. - col), 1. - 1./(1.+ t*t*.001));//\n \t//col += vec3(1, .4, .2)*pow(sun, 16.)*.25; \t\n    \n    // More postprocessing. Adding some very subtle fake warm highlights.\n    vec3 fCol = mix(pow(vec3(1.3, 1, 1)*col, vec3(1, 2, 10)), sky, .5);\n    col = mix(fCol, col, dot(cos(rd*6. +sin(rd.yzx*6.)), vec3(.333))*.1 + .9);\n    \n    \n    // If it were up to me, I'd be ramping up the contrast, but I figured it might be a \n    // little to broody for some. :)\n    //col *= sqrt(col)*1.5;\n \n    \n    // Subtle vignette.\n    uv = fragCoord/iResolution.xy;\n    //col *= pow(16.*uv.x*uv.y*(1. - uv.x)*(1. - uv.y) , .25)*.35 + .65;\n    // Colored variation.\n    col = mix(pow(min(vec3(1.5, 1, 1).zyx*col, 1.), vec3(1, 3, 16)), col, \n              pow(16.*uv.x*uv.y*(1. - uv.x)*(1. - uv.y) , .125)*.5 + .5);\n \n    // Done.\n    fragColor = vec4(pow(max(col, 0.), vec3(1./2.2)), 1.0);\n    \n}"
+      ]
+    },
+    {
+      "id": 10,
+      "type": "PreviewImage",
+      "pos": [
+        1785.9352702335452,
+        2419.6677408737432
+      ],
+      "size": [
+        140,
+        246
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 5
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.68",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 9,
+      "type": "ToyShaderNode",
+      "pos": [
+        1388.6592860274343,
+        2400.7198282472345
+      ],
+      "size": [
+        270,
+        682
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "main_code",
+          "shape": 7,
+          "type": "STRING",
+          "link": 7
+        },
+        {
+          "name": "buffer_a_code",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        },
+        {
+          "name": "iChannel0",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "iChannel1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "iChannel2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "iChannel3",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            5
+          ]
+        },
+        {
+          "name": "DEPTH",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ToyShaderNode"
+      },
+      "widgets_values": [
+        512,
+        512,
+        48,
+        24,
+        "nubes_3d",
+        1,
+        1,
+        "",
+        0.1,
+        false,
+        "Noise White (Mono)",
+        "none",
+        "none",
+        "none"
+      ]
+    },
+    {
+      "id": 8,
+      "type": "Note",
+      "pos": [
+        1119.3350607551665,
+        1783.6795013759631
+      ],
+      "size": [
+        258.1818696531325,
+        88
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "Workflow using the presets"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 13,
+      "type": "Note",
+      "pos": [
+        461.76379959304165,
+        2432.0382491916807
+      ],
+      "size": [
+        258.1818696531325,
+        88
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "Workflow loading code. Notice that in this case the shader needs a noise, I used a preset noise"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    }
+  ],
+  "links": [
+    [
+      4,
+      6,
+      0,
+      7,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      9,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      12,
+      0,
+      9,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.0610764609500019,
+      "offset": [
+        -670.086259857492,
+        -2103.8294131222456
+      ]
+    },
+    "frontendVersion": "1.28.8",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}
