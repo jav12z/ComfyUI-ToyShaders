@@ -29,7 +29,7 @@ Documentation = "https://github.com/jav12z/ComfyUI-ToyShaders/wiki"
 "Bug Tracker" = "https://github.com/jav12z/ComfyUI-ToyShaders/issues"
 
 [tool.comfy]
-PublisherId = ""
+PublisherId = "jav12z"
 DisplayName = "ComfyUI-ToyShaders"
 Icon = ""
 includes = [] 
