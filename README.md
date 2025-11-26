@@ -84,3 +84,7 @@ Feel free to contribute, fork or open issues!
 This project brings the expressiveness of Shadertoy into ComfyUI’s node-based workflow.
 Have fun creating procedural graphics, loops, VFX and experiments directly inside the AI pipeline!
 
+Disclaimer regarding Shadertoy code:
+While this node engine is MIT licensed, the GLSL code snippets you copy from Shadertoy.com are subject to their original authors' licenses (usually CC BY-NC-SA 3.0 unless specified otherwise). Please respect the original artists' rights when using their code for commercial projects.
+
+
